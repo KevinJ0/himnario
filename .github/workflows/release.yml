@@ -18,14 +18,19 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - uses: shorebirdtech/shorebird-action@v0
-        with:
-          shorebird_token: ${{ secrets.SHOREBIRD_TOKEN }}
+      
+      - name: Install Shorebird
+        run: |
+          curl -s https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh | bash
+          echo "$HOME/.shorebird/bin" >> $GITHUB_PATH
       
       - name: Decode Keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/himnario-keystore.jks
           echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
+
+      - name: Shorebird Login
+        run: shorebird login:ci --token ${{ secrets.SHOREBIRD_TOKEN }}
 
       - name: Build and Release
         run: |
