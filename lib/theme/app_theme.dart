@@ -34,6 +34,26 @@ abstract final class AppColors {
 
   static const Color outlineLight = Color(0xFFD9D2E2);
   static const Color outlineDark = Color(0xFF4A3E5C);
+
+  // ── Paleta "Hymnal Desktop" (bandas anchas ≥ 900px) ──────────────────────
+  // Azul marino profundo para texto, lavanda suave para acentos y blancos
+  // cálidos para el papel texturizado, en modo claro.
+  static const Color navy = Color(0xFF22304F);
+  static const Color navyMuted = Color(0xFF5D6882);
+  static const Color navySoft = Color(0xFF16203A);
+  static const Color navyRaised = Color(0xFF1D2948);
+  static const Color navyBorder = Color(0xFF31406A);
+  static const Color lavender = Color(0xFF8D7BC4);
+  static const Color lavenderSoft = Color(0xFFEAE3F7);
+  static const Color lavenderMid = Color(0xFFC9B9EC);
+
+  static const Color paper = Color(0xFFF5F0E6);
+  static const Color paperRaised = Color(0xFFFDFBF5);
+  static const Color paperBorder = Color(0xFFE8E0CE);
+
+  static const Color chorusCream = Color(0xFFFAF3E1);
+  static const Color chorusCreamBorder = Color(0xFFE9D9AE);
+  static const Color chorusNavyBorder = Color(0xFF48597F);
 }
 
 /// Tokens de forma del sistema de diseño.

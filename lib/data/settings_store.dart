@@ -5,6 +5,8 @@ class SettingsStore {
   static const String _themeKey = 'theme_mode';
   static const String _fontSizeKey = 'font_size';
   static const String _fontFamilyKey = 'font_family';
+  static const String _keepScreenOnKey = 'keep_screen_on';
+  static const String _readingModeKey = 'reading_mode';
 
   Future<ThemeMode> loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
@@ -38,5 +40,25 @@ class SettingsStore {
   Future<void> saveFontFamily(String family) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_fontFamilyKey, family);
+  }
+
+  Future<bool> loadKeepScreenOn({bool fallback = true}) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keepScreenOnKey) ?? fallback;
+  }
+
+  Future<void> saveKeepScreenOn(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keepScreenOnKey, value);
+  }
+
+  Future<bool> loadReadingMode({bool fallback = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_readingModeKey) ?? fallback;
+  }
+
+  Future<void> saveReadingMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_readingModeKey, value);
   }
 }

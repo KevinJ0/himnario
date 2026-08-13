@@ -5,55 +5,16 @@ import 'package:flutter/material.dart';
 import '../data/favorites_controller.dart';
 import '../data/recent_hymns_controller.dart';
 import '../models/hymn.dart';
+import '../services/hymn_search.dart';
 import '../theme/app_theme.dart';
 import '../widgets/entrance.dart';
+import '../widgets/favorite_button.dart';
+import '../widgets/hymn_number_avatar.dart';
 import '../widgets/logo_mark.dart';
 import 'hymn_detail_screen.dart';
+import 'recent_hymns_screen.dart';
 
 enum _HymnOrder { numero, titulo }
-
-/// Orden canónico del abecedario para agrupar/sidebar. Los títulos se
-/// agrupan por la primera letra normalizada; `[]` se usa como comodín para
-/// títulos que no comienzan con A-Z.
-const _alphabetOrder = [
-  'A',
-  'B',
-  'C',
-  'D',
-  'E',
-  'F',
-  'G',
-  'H',
-  'I',
-  'J',
-  'K',
-  'L',
-  'M',
-  'N',
-  'Ñ',
-  'O',
-  'P',
-  'Q',
-  'R',
-  'S',
-  'T',
-  'U',
-  'V',
-  'W',
-  'X',
-  'Y',
-  'Z',
-];
-
-String _normalize(String s) {
-  const withAccents = 'ÁÉÍÓÚÜÑ';
-  const withoutAccents = 'AEIOUUN';
-  var result = s.toUpperCase();
-  for (var i = 0; i < withAccents.length; i++) {
-    result = result.replaceAll(withAccents[i], withoutAccents[i]);
-  }
-  return result;
-}
 
 class HymnListScreen extends StatefulWidget {
   final List<Hymn> himnos;
@@ -230,7 +191,7 @@ class _HymnListScreenState extends State<HymnListScreen>
   }
 
   Map<int, String> _buildNormMap(List<Hymn> himnos) {
-    return {for (final h in himnos) h.numero: _normalize(h.titulo)};
+    return HymnSearch.buildNormMap(himnos);
   }
 
   void _invalidateFilteredCache() {
@@ -304,7 +265,6 @@ class _HymnListScreenState extends State<HymnListScreen>
 
   List<Hymn> get _filtered {
     final query = _query.trim().toLowerCase();
-    final normQuery = _normalize(query);
     final favIds = widget.favorites.ids;
     if (_cachedFiltered != null &&
         query == _cacheQuery &&
@@ -314,21 +274,14 @@ class _HymnListScreenState extends State<HymnListScreen>
         setEquals(_cacheFavorites, favIds)) {
       return _cachedFiltered!;
     }
-    final filtered = widget.himnos.where((h) {
-      if (widget.showFavoritesOnly && !favIds.contains(h.numero)) {
-        return false;
-      }
-      if (normQuery.isEmpty) return true;
-      if ('${h.numero}'.contains(query)) return true;
-      return _matchesTitle(_normMap[h.numero]!, normQuery);
-    }).toList();
-    if (_order == _HymnOrder.titulo) {
-      filtered.sort(
-        (a, b) => _normMap[a.numero]!.compareTo(_normMap[b.numero]!),
-      );
-    } else {
-      filtered.sort((a, b) => a.numero.compareTo(b.numero));
-    }
+    final filtered = HymnSearch.filter(
+      source: widget.himnos,
+      normMap: _normMap,
+      query: query,
+      showFavoritesOnly: widget.showFavoritesOnly,
+      favoriteIds: favIds,
+      sortAlphabetically: _order == _HymnOrder.titulo,
+    );
     _cacheQuery = query;
     _cacheOrder = _order;
     _cacheFavorites = favIds;
@@ -338,50 +291,9 @@ class _HymnListScreenState extends State<HymnListScreen>
     return filtered;
   }
 
-  /// Búsqueda tolerante sobre el título ya normalizado (mayúsculas, sin
-  /// acentos). Coincide por subcadena y, cuando la subcadena no basta, compara
-  /// palabra por palabra tolerando errores de escritura con distancia de
-  /// Levenshtein.
-  bool _matchesTitle(String title, String query) {
-    if (title.contains(query)) return true;
-    final queryWords = query.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    if (queryWords.isEmpty) return false;
-    final titleWords = title.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    return queryWords.every(
-      (q) => titleWords.any((t) => _fuzzyWord(t, q)),
-    );
-  }
-
-  /// Coincidencia difusa de una palabra: subcadena o distancia de Levenshtein
-  /// dentro de un umbral razonable según la longitud de la consulta.
-  bool _fuzzyWord(String titleWord, String queryWord) {
-    if (titleWord.contains(queryWord)) return true;
-    final maxDist = switch (queryWord.length) {
-      <= 3 => 0,
-      <= 6 => 1,
-      _ => 2,
-    };
-    return _levenshtein(titleWord, queryWord) <= maxDist;
-  }
-
-  /// Distancia de Levenshtein (inserciones/borrados/sustituciones mínimas).
-  int _levenshtein(String a, String b) {
-    if (a.length < b.length) return _levenshtein(b, a);
-    var prev = List<int>.generate(b.length + 1, (i) => i);
-    for (var i = 1; i <= a.length; i++) {
-      final curr = List<int>.filled(b.length + 1, 0)..[0] = i;
-      for (var j = 1; j <= b.length; j++) {
-        curr[j] = _min(
-          _min(curr[j - 1] + 1, prev[j] + 1),
-          prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1),
-        );
-      }
-      prev = curr;
-    }
-    return prev[b.length];
-  }
-
-  int _min(int a, int b) => a < b ? a : b;
+  /// Hero tag único para cada himno, compartido con el detalle.
+  String _heroTag(Hymn hymn) =>
+      HymnDetailScreen.heroTag(widget.heroPrefix, hymn.numero);
 
   @override
   Widget build(BuildContext context) {
@@ -390,6 +302,12 @@ class _HymnListScreenState extends State<HymnListScreen>
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
+          if (widget.recents != null)
+            IconButton(
+              tooltip: 'Historial',
+              icon: const Icon(Icons.history),
+              onPressed: _openRecents,
+            ),
           IconButton(
             tooltip: 'Cambiar tema',
             icon: Icon(
@@ -463,8 +381,9 @@ class _HymnListScreenState extends State<HymnListScreen>
                           index,
                           _HymnGridTile(
                             hymn: hymn,
-                            isFavorite:
-                                widget.favorites.isFavorite(hymn.numero),
+                            isFavorite: widget.favorites.isFavorite(
+                              hymn.numero,
+                            ),
                             heroTag: _heroTag(hymn),
                             onTap: () => _openHymn(hymn),
                             onToggleFavorite: () =>
@@ -484,8 +403,9 @@ class _HymnListScreenState extends State<HymnListScreen>
                           index,
                           _HymnListTile(
                             hymn: hymn,
-                            isFavorite:
-                                widget.favorites.isFavorite(hymn.numero),
+                            isFavorite: widget.favorites.isFavorite(
+                              hymn.numero,
+                            ),
                             heroTag: _heroTag(hymn),
                             onTap: () => _openHymn(hymn),
                             onToggleFavorite: () =>
@@ -498,15 +418,7 @@ class _HymnListScreenState extends State<HymnListScreen>
             },
           );
         }
-        final recents = _buildRecentsBar();
-        if (recents == null) return list;
-        return Column(
-          children: [
-            recents,
-            const Divider(height: 1),
-            Expanded(child: list),
-          ],
-        );
+        return list;
       },
     );
   }
@@ -528,40 +440,17 @@ class _HymnListScreenState extends State<HymnListScreen>
     );
   }
 
-  /// Franja horizontal de himnos recientes. Solo aparece cuando hay historial
-  /// y no hay una búsqueda activa.
-  Widget? _buildRecentsBar() {
-    final recent = widget.recents;
-    if (recent == null ||
-        recent.ids.isEmpty ||
-        _query.trim().isNotEmpty) {
-      return null;
-    }
-    final byNum = {for (final h in widget.himnos) h.numero: h};
-    final hymns = <Hymn>[];
-    for (final id in recent.ids) {
-      final hymn = byNum[id];
-      if (hymn != null) hymns.add(hymn);
-    }
-    if (hymns.isEmpty) return null;
-    return _RecentHymnsBar(
-      hymns: hymns,
-      onOpen: _openHymn,
-      onClear: () => recent.clear(),
-    );
-  }
-
   /// Listado alfabético con `AlphabetListView`: agrupa los himnos por la
   /// primera letra normalizada del título y delega el sidebar, los headers
   /// fijos, el salto por letra y la letra activa al paquete.
   Widget _buildAlphabeticList(List<Hymn> filtered, ThemeData theme) {
     final groups = <String, List<Hymn>>{};
     for (final hymn in filtered) {
-      final letter = _groupLetter(_normMap[hymn.numero]!);
+      final letter = HymnSearch.groupLetter(_normMap[hymn.numero]!);
       groups.putIfAbsent(letter, () => []).add(hymn);
     }
     final symbols = [
-      for (final letter in _alphabetOrder)
+      for (final letter in kAlphabetOrder)
         if (groups.containsKey(letter)) letter,
       if (groups.containsKey('#')) '#',
     ];
@@ -579,8 +468,7 @@ class _HymnListScreenState extends State<HymnListScreen>
                   isFavorite: widget.favorites.isFavorite(hymn.numero),
                   heroTag: _heroTag(hymn),
                   onTap: () => _openHymn(hymn),
-                  onToggleFavorite: () =>
-                      widget.favorites.toggle(hymn.numero),
+                  onToggleFavorite: () => widget.favorites.toggle(hymn.numero),
                 ),
               ),
           ],
@@ -600,17 +488,14 @@ class _HymnListScreenState extends State<HymnListScreen>
               options: AlphabetListViewOptions(
                 listOptions: ListOptions(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  listHeaderBuilder: (context, symbol) => _SectionHeader(
-                    symbol: symbol,
-                  ),
+                  listHeaderBuilder: (context, symbol) =>
+                      _SectionHeader(symbol: symbol),
                 ),
                 scrollbarOptions: ScrollbarOptions(
                   symbols: symbols,
                   width: 36,
-                  symbolBuilder: (context, symbol, state) => _SidebarSymbol(
-                    symbol: symbol,
-                    state: state,
-                  ),
+                  symbolBuilder: (context, symbol, state) =>
+                      _SidebarSymbol(symbol: symbol, state: state),
                 ),
                 overlayOptions: OverlayOptions(
                   overlayBuilder: (context, symbol) =>
@@ -623,19 +508,6 @@ class _HymnListScreenState extends State<HymnListScreen>
       ),
     );
   }
-
-  /// Primera letra (A-Z) del título normalizado. Los títulos que empiezan con
-  /// signos de exclamación o interrogación invertidos («¡...», «¿...») saltan
-  /// esos caracteres y se agrupan por su primera letra real.
-  String _groupLetter(String normalized) {
-    for (final rune in normalized.runes) {
-      final ch = String.fromCharCode(rune);
-      if (RegExp(r'[A-Z]').hasMatch(ch)) return ch;
-    }
-    return '#';
-  }
-
-  String _heroTag(Hymn hymn) => 'himno-${widget.heroPrefix}-${hymn.numero}';
 
   Widget _buildEmptyState(ThemeData theme) {
     final title = widget.showFavoritesOnly
@@ -677,11 +549,28 @@ class _HymnListScreenState extends State<HymnListScreen>
   }
 
   Future<void> _openHymn(Hymn hymn) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     widget.recents?.record(hymn.numero);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => HymnDetailScreen(
           hymn: hymn,
+          favorites: widget.favorites,
+          heroPrefix: widget.heroPrefix,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRecents() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final recents = widget.recents;
+    if (recents == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RecentHymnsScreen(
+          himnos: widget.himnos,
+          recents: recents,
           favorites: widget.favorites,
           heroPrefix: widget.heroPrefix,
         ),
@@ -708,24 +597,11 @@ class _HymnListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Hero(
         tag: heroTag,
-        child: CircleAvatar(
-          backgroundColor: isDark
-              ? theme.colorScheme.primaryContainer
-              : AppColors.purple.withValues(alpha: 0.1),
-          child: Text(
-            '${hymn.numero}',
-            style: TextStyle(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-              fontFamily: AppFonts.display,
-            ),
-          ),
-        ),
+        child: HymnNumberAvatar(numero: hymn.numero),
       ),
       title: Text(
         hymn.titulo,
@@ -740,7 +616,7 @@ class _HymnListTile extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
-      trailing: _FavoriteButton(
+      trailing: FavoriteButton(
         isFavorite: isFavorite,
         onPressed: onToggleFavorite,
       ),
@@ -778,16 +654,9 @@ class _HymnGridTile extends StatelessWidget {
             children: [
               Hero(
                 tag: heroTag,
-                child: CircleAvatar(
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: Text(
-                    '${hymn.numero}',
-                    style: TextStyle(
-                      color: theme.colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: AppFonts.display,
-                    ),
-                  ),
+                child: HymnNumberAvatar(
+                  numero: hymn.numero,
+                  style: HymnAvatarStyle.grid,
                 ),
               ),
               const SizedBox(width: 12),
@@ -814,7 +683,7 @@ class _HymnGridTile extends StatelessWidget {
                   ],
                 ),
               ),
-              _FavoriteButton(
+              FavoriteButton(
                 isFavorite: isFavorite,
                 onPressed: onToggleFavorite,
               ),
@@ -863,8 +732,8 @@ class _SidebarSymbol extends StatelessWidget {
     final color = switch (state) {
       AlphabetScrollbarItemState.active => theme.colorScheme.primary,
       AlphabetScrollbarItemState.inactive => theme.colorScheme.onSurfaceVariant,
-      AlphabetScrollbarItemState.deactivated => theme.colorScheme.onSurfaceVariant
-          .withValues(alpha: 0.3),
+      AlphabetScrollbarItemState.deactivated =>
+        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
     };
     return Center(
       child: AnimatedDefaultTextStyle(
@@ -913,185 +782,6 @@ class _LetterOverlay extends StatelessWidget {
           fontWeight: FontWeight.w800,
           color: theme.colorScheme.onPrimary,
         ),
-      ),
-    );
-  }
-}
-
-class _FavoriteButton extends StatefulWidget {
-  final bool isFavorite;
-  final VoidCallback onPressed;
-
-  const _FavoriteButton({required this.isFavorite, required this.onPressed});
-
-  @override
-  State<_FavoriteButton> createState() => _FavoriteButtonState();
-}
-
-class _FavoriteButtonState extends State<_FavoriteButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 350),
-    );
-    _scale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 45),
-      TweenSequenceItem(tween: Tween(begin: 1.35, end: 0.85), weight: 25),
-      TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.0), weight: 30),
-    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleTap() {
-    widget.onPressed();
-    _controller.forward(from: 0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.isFavorite
-        ? Colors.redAccent
-        : Theme.of(context).colorScheme.onSurfaceVariant;
-    return IconButton(
-      tooltip: widget.isFavorite
-          ? 'Quitar de favoritos'
-          : 'Agregar a favoritos',
-      onPressed: _handleTap,
-      icon: ScaleTransition(
-        scale: _scale,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          transitionBuilder: (child, animation) =>
-              ScaleTransition(scale: animation, child: child),
-          child: Icon(
-            widget.isFavorite ? Icons.favorite : Icons.favorite_border,
-            key: ValueKey(widget.isFavorite),
-            color: color,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Franja horizontal con los himnos abiertos recientemente.
-class _RecentHymnsBar extends StatelessWidget {
-  final List<Hymn> hymns;
-  final ValueChanged<Hymn> onOpen;
-  final VoidCallback onClear;
-
-  const _RecentHymnsBar({
-    required this.hymns,
-    required this.onOpen,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.history,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Recientes',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontFamily: AppFonts.display,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Borrar historial',
-                  onPressed: onClear,
-                  visualDensity: VisualDensity.compact,
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          SizedBox(
-            height: 68,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: hymns.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final hymn = hymns[index];
-                return InkWell(
-                  borderRadius: BorderRadius.circular(AppRadius.card),
-                  onTap: () => onOpen(hymn),
-                  child: Container(
-                    width: 200,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(AppRadius.card),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          child: Text(
-                            '${hymn.numero}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onPrimaryContainer,
-                              fontFamily: AppFonts.display,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            hymn.titulo,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontFamily: AppFonts.display,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -29,13 +29,36 @@ class Hymn {
 
   String get tituloCompleto => '$numero. $titulo';
 
-  int get numEstrofas =>
-      secciones.where((s) => s.type == 'estrofa').length;
+  int get numEstrofas => secciones.where((s) => s.type == 'estrofa').length;
 
   String get descripcionEstrofas {
     final n = numEstrofas;
     final base = n == 1 ? '1 estrofa' : '$n estrofas';
     return secciones.any((s) => s.isChorus) ? '$base, con coro' : base;
+  }
+
+  /// Texto en texto plano preparado para compartir: encabezado con el nombre
+  /// del himnario, número y título, seguido de cada sección respetando su
+  /// orden real. Los coros se etiquetan como «CORO» y se les quita el
+  /// marcador técnico `//...//` de repetición.
+  String get textoCompartir {
+    final buffer = StringBuffer()
+      ..writeln('Himnos de Gloria y Triunfo')
+      ..writeln()
+      ..writeln('Himno #$numero')
+      ..writeln(titulo);
+    var nEstrofa = 0;
+    for (final seccion in secciones) {
+      final textoLimpio = seccion.isChorus
+          ? seccion.text.replaceAll('//', '')
+          : seccion.text;
+      buffer
+        ..writeln()
+        ..writeln()
+        ..writeln(seccion.isChorus ? 'CORO:' : 'Estrofa ${++nEstrofa}:')
+        ..writeln(textoLimpio);
+    }
+    return buffer.toString();
   }
 
   factory Hymn.fromJson(Map<String, dynamic> json) {
@@ -49,8 +72,8 @@ class Hymn {
   }
 
   Map<String, dynamic> toJson() => {
-        'numero': numero,
-        'titulo': titulo,
-        'secciones': secciones.map((e) => e.toJson()).toList(),
-      };
+    'numero': numero,
+    'titulo': titulo,
+    'secciones': secciones.map((e) => e.toJson()).toList(),
+  };
 }

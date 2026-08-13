@@ -6,6 +6,7 @@ import '../data/recent_hymns_controller.dart';
 import '../models/hymn.dart';
 import '../widgets/entrance.dart';
 import '../widgets/loading_skeleton.dart';
+import 'desktop_hymn_layout.dart';
 import 'hymn_list_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -45,45 +46,72 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          _buildTab(
-            showFavoritesOnly: false,
-            title: 'Himnos de Gloria y Triunfo',
-            heroPrefix: 'todos',
-          ),
-          _buildTab(
-            showFavoritesOnly: true,
-            title: 'Favoritos',
-            heroPrefix: 'favoritos',
-          ),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() => _tab = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Himnos',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_border),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Favoritos',
-          ),
-        ],
-      ),
+    if (_error != null || _himnos == null) {
+      return _buildTab(
+        showFavoritesOnly: false,
+        title: 'Himnos de Gloria y Triunfo',
+        heroPrefix: 'todos',
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // En pantallas anchas (≥ 900px) se usa el panel dividido tipo
+        // escritorio; por debajo, el flujo móvil con barra de navegación.
+        final wide = constraints.maxWidth > 900;
+        return Scaffold(
+          body: wide
+              ? DesktopHymnLayout(
+                  himnos: _himnos!,
+                  favorites: _favorites,
+                  recents: _recents,
+                  onThemeChanged: widget.onThemeChanged,
+                )
+              : IndexedStack(
+                  index: _tab,
+                  children: [
+                    _buildTab(
+                      showFavoritesOnly: false,
+                      title: 'Himnos de Gloria y Triunfo',
+                      heroPrefix: 'todos',
+                    ),
+                    _buildTab(
+                      showFavoritesOnly: true,
+                      title: 'Favoritos',
+                      heroPrefix: 'favoritos',
+                    ),
+                  ],
+                ),
+          bottomNavigationBar: wide
+              ? null
+              : NavigationBar(
+                  selectedIndex: _tab,
+                  onDestinationSelected: (index) {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    setState(() => _tab = index);
+                  },
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.menu_book_outlined),
+                      selectedIcon: Icon(Icons.menu_book),
+                      label: 'Himnos',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.favorite_border),
+                      selectedIcon: Icon(Icons.favorite),
+                      label: 'Favoritos',
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 
-  Widget _buildTab(
-    {required bool showFavoritesOnly,
+  Widget _buildTab({
+    required bool showFavoritesOnly,
     required String title,
-    required String heroPrefix}) {
+    required String heroPrefix,
+  }) {
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(title: Text(title)),

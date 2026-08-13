@@ -55,4 +55,28 @@ void main() {
     await store.clear();
     expect(await store.load(), isEmpty);
   });
+
+  test('textoCompartir respeta la estructura y limpia marcadores', () {
+    final hymn = Hymn.fromJson({
+      'numero': 42,
+      'titulo': 'SUBLIME GRACIA',
+      'secciones': [
+        {'tipo': 'estrofa', 'texto': 'Sublime gracia\nDel Señor'},
+        {'tipo': 'coro', 'texto': '//Fui salvo// por su amor.'},
+        {'tipo': 'estrofa', 'texto': 'La fe se afirmará'},
+      ],
+    });
+
+    final texto = hymn.textoCompartir;
+
+    expect(texto, startsWith('Himnos de Gloria y Triunfo'));
+    expect(texto, contains('Himno #42'));
+    expect(texto, contains('SUBLIME GRACIA'));
+    expect(texto, contains('Estrofa 1:'));
+    expect(texto, contains('Estrofa 2:'));
+    expect(texto, contains('CORO:'));
+    expect(texto, contains('Sublime gracia\nDel Señor'));
+    expect(texto, contains('Fui salvo por su amor.'));
+    expect(texto, isNot(contains('//')));
+  });
 }

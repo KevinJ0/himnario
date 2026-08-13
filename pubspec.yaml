@@ -37,6 +37,10 @@ dependencies:
   shared_preferences: ^2.3.0
   google_fonts: ^6.2.1
   alphabet_list_view: ^1.2.1
+  share_plus: ^13.3.0
+  screenshot: ^3.0.0
+  wakelock_plus: ^1.7.0
+  path_provider: ^2.1.6
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -63,6 +67,8 @@ flutter:
   assets:
     - assets/himnos.json
     - assets/app_icon.png
+    - assets/fonts/google_fonts/
+    - shorebird.yaml
 
   fonts:
     - family: EBGaramond
@@ -106,6 +112,10 @@ flutter_launcher_icons:
   image_path: "assets/app_icon.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/app_icon.png"
+    icon_size: 256
   web:
     generate: true
     image_path: "assets/app_icon.png"
