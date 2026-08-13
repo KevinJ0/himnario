@@ -28,18 +28,28 @@ jobs:
       
       - name: Decode Keystore
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/himnario-keystore.jks
-            echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
+          echo "Checking secret existence..."
+          # Imprimimos solo la longitud para no revelar el secreto
+          echo "ANDROID_KEYSTORE_BASE64 length: ${#ANDROID_KEYSTORE_BASE64}"
+          echo "ANDROID_KEY_PROPERTIES length: ${#ANDROID_KEY_PROPERTIES}"
+          
+          # Accedemos a los secretos mediante variables de entorno para mayor fiabilidad
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/himnario-keystore.jks
+            echo "$ANDROID_KEY_PROPERTIES" > android/key.properties
           else
-            echo "Error: Android secrets not set."
+            echo "Error: Android secrets not available in environment."
             exit 1
           fi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+
+      - name: Shorebird Login
+        run: shorebird login:ci --token ${{ secrets.SHOREBIRD_TOKEN }}
 
       - name: Build and Release
-        run: |
-          # Aseguramos que shorebird use el token del env
-          shorebird release android
+        run: shorebird release android
       
       - name: Build APK (for GitHub Release)
         run: flutter build apk --release
