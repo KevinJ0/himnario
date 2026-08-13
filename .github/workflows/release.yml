@@ -9,6 +9,8 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    env:
+      SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -22,18 +24,21 @@ jobs:
       - name: Install Shorebird
         run: |
           curl -s https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh | bash
-          echo "$HOME/.shorebird/bin" >> $GITHUB_PATH
+          echo "/home/runner/.config/shorebird/bin" >> $GITHUB_PATH
       
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/himnario-keystore.jks
-          echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
-
-      - name: Shorebird Login
-        run: shorebird login:ci --token ${{ secrets.SHOREBIRD_TOKEN }}
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/himnario-keystore.jks
+            echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
+          else
+            echo "Error: Android secrets not set."
+            exit 1
+          fi
 
       - name: Build and Release
         run: |
+          # Aseguramos que shorebird use el token del env
           shorebird release android
       
       - name: Build APK (for GitHub Release)
