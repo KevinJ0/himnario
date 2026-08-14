@@ -93,7 +93,7 @@ class _MainScreenState extends State<MainScreen> {
                     NavigationDestination(
                       icon: Icon(Icons.menu_book_outlined),
                       selectedIcon: Icon(Icons.menu_book),
-                      label: 'Himnos',
+                      label: 'Himnario',
                     ),
                     NavigationDestination(
                       icon: Icon(Icons.favorite_border),
