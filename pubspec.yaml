@@ -68,7 +68,6 @@ flutter:
   assets:
     - assets/himnos.json
     - assets/app_icon.png
-    - assets/fonts/google_fonts/
     - shorebird.yaml
 
   fonts:

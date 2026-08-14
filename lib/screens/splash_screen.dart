@@ -11,7 +11,7 @@ class SplashScreen extends StatelessWidget {
   const SplashScreen({
     super.key,
     required this.onThemeChanged,
-    this.duration = const Duration(milliseconds: 1800),
+    this.duration = const Duration(seconds: 1),
   });
 
   @override
