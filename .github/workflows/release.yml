@@ -45,9 +45,6 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
 
-      - name: Shorebird Login
-        run: shorebird login:ci --token ${{ secrets.SHOREBIRD_TOKEN }}
-
       - name: Build and Release
         run: shorebird release android
       
