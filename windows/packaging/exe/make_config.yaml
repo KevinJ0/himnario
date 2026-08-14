@@ -1,0 +1,10 @@
+app_id: 3E5604C4-D4A9-4EBB-8AB8-CEFC17AF0A2A
+publisher: Kevin
+publisher_url: https://github.com/KevinJ0/himnario
+display_name: Himnario
+create_desktop_icon: true
+install_dir_name: Himnario
+setup_icon_file: windows/runner/resources/app_icon.ico
+locales:
+  - es
+  - en

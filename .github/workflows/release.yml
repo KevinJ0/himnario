@@ -67,13 +67,15 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - name: Build Windows
-        run: flutter build windows --release
-      - name: Upload Windows Artifact
+      - name: Install FastForge
+        run: dart pub global activate fastforge
+      - name: Build Windows Installer
+        run: fastforge package --platform windows --targets exe
+      - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: build/windows/x64/runner/Release/
+          name: windows-installer
+          path: dist/
 
   release-android:
     needs: build-android
@@ -100,13 +102,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: windows-build
-          path: windows-artifact
+          name: windows-installer
+          path: windows-installer
       - name: Create Windows Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}-windows
           name: Himnario Windows ${{ github.ref_name }}
-          files: windows-artifact/**
+          files: windows-installer/**/*-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
