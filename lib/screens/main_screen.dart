@@ -98,7 +98,7 @@ class _MainScreenState extends State<MainScreen> {
                     NavigationDestination(
                       icon: Icon(Icons.favorite_border),
                       selectedIcon: Icon(Icons.favorite),
-                      label: 'Favoritos',
+                      label: 'Mis Favoritos',
                     ),
                   ],
                 ),
