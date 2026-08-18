@@ -49,16 +49,13 @@ jobs:
           ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
 
       - name: Build and Release
-        run: shorebird release android
-      
-      - name: Build APK (for GitHub Release)
-        run: flutter build apk --release
+        run: shorebird release android --artifact=apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/**/*.apk
 
   build-windows:
     runs-on: windows-latest
@@ -91,7 +88,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}-android
           name: Himnario Android ${{ github.ref_name }}
-          files: android-artifact/app-release.apk
+          files: android-artifact/**/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
